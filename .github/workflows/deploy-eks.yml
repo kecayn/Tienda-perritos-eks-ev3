@@ -52,14 +52,18 @@ jobs:
           docker build -t $ECR_REGISTRY/${ECR_REPO_BACKEND}:${IMAGE_TAG} .
           docker push $ECR_REGISTRY/${ECR_REPO_BACKEND}:${IMAGE_TAG}
 
-      # ---------- DB (opcional) ----------
-      - name: Build & push DB
+      # ---------- Actualizar DB en EKS ----------
+      - name: Actualizar DB en EKS
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          EKS_NAMESPACE: ${{ secrets.EKS_NAMESPACE }}
         run: |
-          cd db
-          docker build -t $ECR_REGISTRY/${ECR_REPO_DB}:${IMAGE_TAG} .
-          docker push $ECR_REGISTRY/${ECR_REPO_DB}:${IMAGE_TAG}
+          kubectl apply -f k8s/mysql-deployment.yaml -n $EKS_NAMESPACE
+          kubectl apply -f k8s/mysql-service.yaml -n $EKS_NAMESPACE
+          kubectl set image deployment/tienda-db \
+            mysql=$ECR_REGISTRY/${ECR_REPO_DB}:${IMAGE_TAG} \
+            -n $EKS_NAMESPACE
+          kubectl rollout status deployment/tienda-db -n $EKS_NAMESPACE
 
       # ---------- Instalar kubectl ----------
       - name: Instalar kubectl
